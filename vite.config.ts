@@ -3,6 +3,6 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig({
-  base: './', // 解决 GitHub Pages 构建后的绝对路径 404 找不到 asset 的问题
+  base: '/google-billing-demo/', // 强制使用 GitHub Pages 的绝对路径
   plugins: [react()],
 })
