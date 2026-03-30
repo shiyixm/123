@@ -66,14 +66,4 @@ function doPost(e) {
   }
 }
 
-// 支持 CORS Preflight 请求
-function doOptions(e) {
-  const headers = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type"
-  };
-  return ContentService.createTextOutput("OK")
-    .setMimeType(ContentService.MimeType.TEXT)
-    .setHeaders(headers);
-}
+// 移除前端跨域预检处理，由 GAS 纯文本简单请求自主绕过。
