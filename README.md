@@ -70,3 +70,30 @@ npm run dev
    VITE_GOOGLE_APP_SCRIPT_URL=https://script.google.com/macros/s/AKfycb.../exec
    ```
 3. 重新启动你的终端 `npm run dev`，前端页面就会完全同步显示您的智能戒指真实套餐！点击订阅后，在 `订单` 工作表中也能实时看到新增的数据。
+
+---
+
+## ☁️ 步骤四：自动部署到 GitHub Pages
+
+项目已内置基于 GitHub Actions 的自动部署工作流 (`.github/workflows/deploy.yml`)。当您推送代码到 `main` 分支时，将自动构建并部署项目。
+
+请按照以下步骤在 GitHub 配置所需的环境变量并开启 Pages：
+
+### 1. 配置仓库 Secrets (环境变量)
+因为 `.env` 文件已被 Git 忽略，我们需要在 Github 项目设置中单独配置这个地址：
+1. 进入 GitHub 您的项目仓库主页。
+2. 点击上方的 **Settings** 选项卡。
+3. 在左侧菜单中展开 **Secrets and variables**，点击 **Actions**。
+4. 点击 **New repository secret** 按钮：
+   - **Name**: `VITE_GOOGLE_APP_SCRIPT_URL`
+   - **Secret**: 填入您的 Google Apps Script Web App URL（参考 `.env.example`，例如：`https://script.google.com/macros/s/.../exec`）。
+5. 点击 **Add secret** 保存。
+
+### 2. 开启 GitHub Pages
+确保 GitHub 知道使用 Actions 进行部署：
+1. 在 **Settings** 页面中，点击左侧菜单的 **Pages**。
+2. 在 **Build and deployment** 下的 **Source** 下拉菜单中，选择 **GitHub Actions**。
+
+### 3. 推送代码触发部署
+完成上述配置后，当您向 `main` 分支推送代码时，Actions 就会自动启动。
+部署成功后，您可以在仓库首页右下角的 **Environments** 区域或 **Settings -> Pages** 页面找到并访问您发布的线上网站链接。
