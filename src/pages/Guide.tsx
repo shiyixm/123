@@ -138,22 +138,7 @@ billingClient.startConnection(object : BillingClientStateListener {
                 },
                 { 
                   title: '服务器安全校验与下发', 
-                  description: (
-                    <div style={{ marginTop: 8, color: '#555' }}>
-                      <Paragraph style={{ marginBottom: 8, color: '#555' }}>服务器对请求进行严谨的业务层判断：</Paragraph>
-                      <ul style={{ paddingLeft: '20px', marginBottom: 16 }}>
-                        <li>如果已被禁用（比如升级套餐），则直接返回错误，如 <b>“无效订单”</b>。</li>
-                        <li>如果 <code>purchaseToken</code> 在系统已存在，则直接返回错误，如 <b>“无效/重复订单”</b>。</li>
-                        <li>否则校验 <code>orderId</code> 和订单校验得到的 <code>latest_successful_order_id</code> 对比：
-                          <ul style={{ paddingLeft: '20px', marginTop: 4 }}>
-                            <li>二者相同且 <code>orderId</code> 在系统内不存在，则需要创建权益订单、下发用户权益。</li>
-                            <li>二者相同但 <code>orderId</code> 已存在，则更新权益订单状态、续订状态、过期时间、取消原因（如果有）。</li>
-                          </ul>
-                        </li>
-                      </ul>
-                      <Paragraph style={{ color: '#555' }}>最后，通知客户端订单已处理，服务器执行 <code>acknowledgePurchase()</code>。</Paragraph>
-                    </div>
-                  ) 
+                  description: '服务器对请求进行校验，参考《漏单处理》，处理完成后通知客户端，服务器执行acknowledge。' 
                 }
               ]} 
             />
@@ -178,7 +163,7 @@ billingClient.startConnection(object : BillingClientStateListener {
               { key: '1', field: 'subscriptionOfferDetails', desc: <span>列表，包含 Base Plan 和优惠信息。<a style={{ marginLeft: 8 }} onClick={() => setIsOfferModalOpen(true)}>查看案例</a></span> },
               { key: '2', field: 'basePlanId', desc: '由服务器提供数据，用于在本地列表中匹配具体的订阅方案。' },
               { key: '3', field: 'pricingPhases', desc: '包含具体的价格字符串（formattedPrice）和周期（billingPeriod，如 "P1M"）。' },
-              { key: '4', field: 'offerToken', desc: '由服务器提供数据，是调用支付接口 launchBillingFlow 时必需的凭证。' },
+              { key: '4', field: 'offerToken', desc: '待定，暂不清楚优惠折扣由哪一方控制。' },
             ]} 
             columns={queryParamsColumns}
           />
@@ -368,7 +353,7 @@ val billingResult = billingClient.launchBillingFlow(activity, billingFlowParams)
           <Text strong>服务端核心处理逻辑：</Text>
           <div style={{ background: '#fff', padding: '16px', borderRadius: 8, border: '1px solid #f0f0f0', marginTop: 0, marginBottom: 8 }}>
             <ul style={{ paddingLeft: '20px', marginBottom: 0 }}>
-                            <li style={{ marginBottom: 8 }}><b>新增与确认 (蓝色高亮类型)：</b>收到 <Tag color="blue">RECOVERED</Tag>、<Tag color="blue">RENEWED</Tag>、<Tag color="blue">PURCHASED</Tag>、<Tag color="blue">RESTARTED</Tag> 时，需通过 <code>purchaseToken</code> 向 Google 校验订单。<b>校验逻辑参考正向流程：</b>如果 <code>purchaseToken</code> & <code>latestOrderId</code> 已存在，则更新现有订单（如续订、状态同步）；如果订单号不存在，则必须<b>新增订单数据</b>并下发权益。特别注意：<b>仅 <code>PURCHASED</code> 类型的订单在校验成功后需要指定 <code>Acknowledge</code></b>（其他类型通常会自动继承旧的确认状态）。</li>
+                            <li style={{ marginBottom: 8 }}><b>新增与确认 (蓝色高亮类型)：</b>收到 <Tag color="blue">RECOVERED</Tag>、<Tag color="blue">RENEWED</Tag>、<Tag color="blue">PURCHASED</Tag>、<Tag color="blue">RESTARTED</Tag> 时，需通过 <code>purchaseToken</code> 向 Google 校验订单。<b>参考订单校验处理逻辑</b></li>
               <li style={{ marginBottom: 0 }}><b>更新过期时间 (其他类型)：</b>收到 <code>CANCELED</code>, <code>IN_GRACE_PERIOD</code>, <code>ON_HOLD</code>, <code>DEFERRED</code>, <code>REVOKED</code>, <code>EXPIRED</code> 等通知时，均需要在本地系统中<b>同步更新该订单的最新的 expiryTime</b>。</li>
             </ul>
           </div>
@@ -416,6 +401,22 @@ val billingResult = billingClient.launchBillingFlow(activity, billingFlowParams)
     "notificationType": 2, // 2 = RENEWED
     "purchaseToken": "xyz123abc...",
     "subscriptionId": "premium_sub_monthly"
+  }
+}`}
+            </code>
+          </pre>
+          <Text strong style={{ display: 'inline-block', marginTop: 16 }}>退款回调 (VoidedPurchaseNotification) 数据结构：</Text>
+          <pre style={{ background: '#f6f8fa', color: '#24292e', padding: 16, borderRadius: 8, border: '1px solid #d1d9e0', width: '100%' }}>
+            <code className="language-json">
+{`{
+  "version": "1.0",
+  "packageName": "com.example.app",
+  "eventTimeMillis": "1698391200000",
+  "voidedPurchaseNotification": {
+    "purchaseToken": "xyz123abc...",
+    "orderId": "GPA.3312-4456-7789-00123",
+    "productType": 2, // 1 = inapp (一次性), 2 = subs (订阅)
+    "refundType": 1 // 1 = 取消, 2 = 撤销(Revoked)
   }
 }`}
             </code>
@@ -584,7 +585,11 @@ sequenceDiagram
             本集成方案基于 <b>Google Play Billing Library v8.0.0+</b>，涵盖了从客户端交互到后端校验的完整闭环。
           </Paragraph>
 
-          <Divider style={{ borderColor: '#e8e8e8' }} />
+          <Divider style={{ margin: '48px 0', borderColor: '#e8e8e8', color: '#002fa7', textAlign: 'left' }}>集成时序图 (Interaction Flow)</Divider>
+          
+          <MermaidChart chart={sequenceDiagram} />
+
+          <Divider style={{ margin: '48px 0', borderColor: '#e8e8e8' }} />
 
           <Steps
             direction="vertical"
@@ -603,136 +608,6 @@ sequenceDiagram
               ),
             }))}
           />
-
-          <Divider style={{ margin: '48px 0', borderColor: '#e8e8e8', color: '#002fa7', textAlign: 'left' }}>集成时序图 (Interaction Flow)</Divider>
-          
-          <MermaidChart chart={sequenceDiagram} />
-
-          <Divider style={{ margin: '48px 0', borderColor: '#e8e8e8' }} />
-          
-           <Divider style={{ margin: '48px 0', borderColor: '#e8e8e8', color: '#002fa7', textAlign: 'left' }}>财务对账 (Financial Reconciliation)</Divider>
-          
-          <Card bordered={false} className="guide-card" style={{ marginBottom: 48, borderRadius: 16, boxShadow: '0 4px 20px rgba(0,0,0,0.05)', textAlign: 'left' }}>
-            <Space direction="vertical" size="middle" style={{ width: '100%' }}>
-              <div>
-                <Title level={4} style={{ color: '#002fa7', marginBottom: 12 }}>1. 账单获取途径</Title>
-                <Paragraph style={{ marginBottom: 8 }}>
-                  开发者可以通过以下两种方式获取谷歌官方账单数据进行对账：
-                </Paragraph>
-                <ul style={{ paddingLeft: 20, marginBottom: 0 }}>
-                  <li>
-                    <Text strong>Google Play Console 手动下载</Text>：
-                    访问 <a href="https://play.google.com/console/u/0/developers/-/reports/financial/earnings" target="_blank" rel="noreferrer">财务报告 (Financial Reports)</a> 页面直接下载 CSV。
-                  </li>
-                  <li>
-                    <Text strong>Google Cloud Storage (GCS) 自动化下载</Text>：
-                    路径通常为：<code>gs://pubsite_prod_rev_[your_developer_id]/sales/</code> (销售) 和 <code>gs://pubsite_prod_rev_[your_developer_id]/earnings/</code> (财务)。
-                  </li>
-                  <li>
-                    <Text strong>API 访问</Text>：使用 <a href="https://developers.google.com/google-play/android-publisher/reporting" target="_blank" rel="noreferrer">Standard Reports API</a> 获取。
-                  </li>
-                </ul>
-              </div>
-
-              <Divider style={{ margin: '8px 0' }} />
-
-              <div>
-                <Title level={4} style={{ color: '#002fa7', marginBottom: 12 }}>2. 每日销售报告 (Estimated Sales Reports)</Title>
-                <Paragraph style={{ marginBottom: 8 }}>
-                  用于近实时的销量监控（T+1），数据基于 <Text code>UTC</Text> 时区。该报告不包含最终扣除佣金后的金额。
-                </Paragraph>
-                <Table 
-                  bordered
-                  size="small" 
-                  pagination={false} 
-                  columns={[
-                    { title: '字段 (Field)', dataIndex: 'field', key: 'field', width: '22%' },
-                    { title: '格式 (Format)', dataIndex: 'format', key: 'format', width: '12%' },
-                    { title: '可选 (Optional)', dataIndex: 'optional', key: 'optional', width: '10%' },
-                    { title: '示例与中文说明', dataIndex: 'desc', key: 'desc' }
-                  ]}
-                  dataSource={[
-                    { key: '1', field: 'Order Number', format: 'String', optional: 'No', desc: '包含续期次数的长订单号（如首次续订为 GPA.xxx..0）。' },
-                    { key: '2', field: 'Order Charged Date', format: 'String', optional: 'No', desc: '该订单扣款的 UTC 日期 (YYYY-MM-DD)。' },
-                    { key: '3', field: 'Order Charged Timestamp', format: 'Integer', optional: 'No', desc: '扣款时的 UNIX 秒级时间戳。' },
-                    { key: '4', field: 'Financial Status', format: 'String', optional: 'No', desc: '财务状态（扣款、退款、部分退款等）。多次退款分行显示。' },
-                    { key: '5', field: 'Device Model', format: 'String', optional: 'No', desc: '首单发生时的设备型号。' },
-                    { key: '6', field: 'Product Title', format: 'String', optional: 'No', desc: '以买家语言展示的本地化商品名称。' },
-                    { key: '7', field: 'Package ID', format: 'String', optional: 'No', desc: '应用包名。' },
-                    { key: '8', field: 'Product Type', format: 'String', optional: 'No', desc: '商品大类：订阅或一次性商品。' },
-                    { key: '9', field: 'SKU ID', format: 'String', optional: 'No', desc: '控制台配置的商品唯一标识符。' },
-                    { key: '10', field: 'Currency of Sale', format: 'String', optional: 'No', desc: '买家付款的原始币种（如 USD）。' },
-                    { key: '11', field: 'Item Price', format: 'Integer', optional: 'No', desc: '商品源单价（买家币种，可含千位号）。' },
-                    { key: '12', field: 'Taxes Collected', format: 'Integer', optional: 'Yes', desc: '代收税费金额。' },
-                    { key: '13', field: 'Charged Amount', format: 'Integer', optional: 'No', desc: '最终扣款总计（商品单价与税费之和）。' },
-                    { key: '14', field: 'City of Buyer', format: 'String', optional: 'Yes', desc: '买家所在城市。' },
-                    { key: '15', field: 'State of Buyer', format: 'String', optional: 'Yes', desc: '买家所在州/省份。' },
-                    { key: '16', field: 'Postcode of Buyer', format: 'String', optional: 'Yes', desc: '买家邮编。' },
-                    { key: '17', field: 'Country of Buyer', format: 'String', optional: 'No', desc: '买家国家/地区代码。' },
-                    { key: '18', field: 'Base Plan / Option ID', format: 'String', optional: 'Yes', desc: '基础方案 (Base Plan) 或购买选项 (Option) ID。' },
-                    { key: '19', field: 'Offer ID', format: 'String', optional: 'Yes', desc: '关联的优惠计划 ID。' },
-                    { key: '20', field: 'Group ID', format: 'Integer', optional: 'Yes', desc: '全域账号组 ID。' },
-                    { key: '21', field: 'First USD 1M Eligible', format: 'String', optional: 'Yes', desc: '是否符合“首个100万降至15%费率”的资格。' },
-                    { key: '22', field: 'Promotion ID', format: 'String', optional: 'Yes', desc: '促销折扣码（含 Play Points 优惠）。' },
-                    { key: '23', field: 'Coupon Value', format: 'Integer', optional: 'Yes', desc: '折扣券面抵扣额度。' },
-                    { key: '24', field: 'Discount Rate', format: 'Integer', optional: 'Yes', desc: '使用积分抵扣享受的折扣比例%。' },
-                    { key: '25', field: 'Featured Products ID', format: 'Integer', optional: 'Yes', desc: '平台特色推荐的产品专属 ID。' },
-                    { key: '26', field: 'Price Experiment ID', format: 'String', optional: 'Yes', desc: '价格实验测试 A/B Test ID。' },
-                    { key: '27', field: 'Sales Channel', format: 'String', optional: 'Yes', desc: '首发流转渠道（续费订阅此表位留空）。' },
-                  ]}
-                />
-              </div>
-
-              <Divider style={{ margin: '8px 0' }} />
-
-              <div>
-                <Title level={4} style={{ color: '#002fa7', marginBottom: 12 }}>3. 财务对账单 (Earnings Reports)</Title>
-                <Paragraph style={{ marginBottom: 8 }}>
-                  最终结算账单，包含最终收到的净收入。涵盖所有对账字段解析：
-                </Paragraph>
-                <Table 
-                  bordered
-                  size="small" 
-                  pagination={false} 
-                  columns={[
-                    { title: '字段 (Field)', dataIndex: 'field', key: 'field', width: '22%' },
-                    { title: '格式 (Format)', dataIndex: 'format', key: 'format', width: '12%' },
-                    { title: '可选 (Optional)', dataIndex: 'optional', key: 'optional', width: '10%' },
-                    { title: '示例与中文说明', dataIndex: 'desc', key: 'desc' }
-                  ]}
-                  dataSource={[
-                    { key: '1', field: 'Description', format: 'String', optional: 'No', desc: '包含续期次数的长订单号（如首次续订为 GPA.xxx..0）。' },
-                    { key: '2', field: 'Transaction Date', format: 'String', optional: 'No', desc: '太平洋时间 (PDT/PST) 订单日期。可能跨月记录。' },
-                    { key: '3', field: 'Transaction Time', format: 'String', optional: 'No', desc: '交易具体时间。' },
-                    { key: '4', field: 'Tax Type', format: 'String', optional: 'Yes', desc: '税务类型。非税费行留空。' },
-                    { key: '5', field: 'Transaction Type', format: 'String', optional: 'No', desc: '交易类型：Charge(扣款), Google fee(抽成), Tax(税费), refund(退款) 等。' },
-                    { key: '6', field: 'Refund Type', format: 'String', optional: 'Yes', desc: '退款类型：全额 (Full) 或 按比例 (Partial)。' },
-                    { key: '7', field: 'Product Title', format: 'String', optional: 'No', desc: '以买家语言展示的本地化商品名称。' },
-                    { key: '8', field: 'Package ID', format: 'String', optional: 'No', desc: '应用包名。' },
-                    { key: '9', field: 'Product Type', format: 'String', optional: 'No', desc: '商品大类：订阅或一次性商品。' },
-                    { key: '10', field: 'SKU ID', format: 'String', optional: 'No', desc: '控制台配置的商品唯一标识符。' },
-                    { key: '11', field: 'Hardware', format: 'String', optional: 'No', desc: '首单发生时的设备型号。' },
-                    { key: '12', field: 'Buyer Country', format: 'String', optional: 'No', desc: '买家国家/地区代码。' },
-                    { key: '13', field: 'Buyer State', format: 'String', optional: 'Yes', desc: '买家州/省份。' },
-                    { key: '14', field: 'Buyer Postcode', format: 'String', optional: 'Yes', desc: '买家邮编。' },
-                    { key: '15', field: 'Buyer Currency', format: 'String', optional: 'No', desc: '买家付款币种（如 USD）。' },
-                    { key: '16', field: 'Amount (Buyer Currency)', format: 'Integer', optional: 'No', desc: '该币种下的交易原额。' },
-                    { key: '17', field: 'Currency Conversion Rate', format: 'Integer', optional: 'No', desc: '买家币种至结算币种的汇率。' },
-                    { key: '18', field: 'Merchant Currency', format: 'String', optional: 'No', desc: '最终结算的本地提现币种。' },
-                    { key: '19', field: 'Amount (Merchant Currency)', format: 'Integer', optional: 'No', desc: '汇率换算后的最终结账额。' },
-                    { key: '20', field: 'Base Plan / Option ID', format: 'String', optional: 'Yes', desc: '基础方案 (Base Plan) 或购买选项 (Option) ID。' },
-                    { key: '21', field: 'Offer ID', format: 'String', optional: 'Yes', desc: '关联的优惠计划 ID。' },
-                    { key: '22', field: 'Group ID', format: 'Integer', optional: 'Yes', desc: '全域账号组 ID。' },
-                    { key: '23', field: 'First USD 1M Eligible', format: 'String', optional: 'Yes', desc: '是否符合“首个100万降至15%费率”的资格。' },
-                    { key: '24', field: 'Service Fee %', format: 'Integer', optional: 'Yes', desc: '平台抽成比率（15 或 30）。' },
-                    { key: '25', field: 'Fee Description', format: 'String', optional: 'Yes', desc: '费率计算依据备注（如 SUBSCRIPTIONS）。' },
-                    { key: '26', field: 'Promotion ID', format: 'String', optional: 'Yes', desc: '促销折扣抵扣码（含 Play Points）。' },
-                    { key: '27', field: 'Sales Channel', format: 'String', optional: 'Yes', desc: '首发购买渠道（自动续费订单此字段留空）。' },
-                  ]}
-                />
-              </div>
-            </Space>
-          </Card>
 
         </Typography>
 
