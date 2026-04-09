@@ -152,6 +152,9 @@ billingClient.startConnection(object : BillingClientStateListener {
       content: (
         <Space direction="vertical" size="middle" style={{ width: '100%', marginTop: 16, textAlign: 'left' }} align="start">
           <Paragraph>
+            服务器提供产品 id，app 端调用 <code>queryProductDetailsAsync</code> 获取 base plan 以及 offer 信息。
+          </Paragraph>
+          <Paragraph>
             v8.0+ 的回调返回 <code>QueryProductDetailsResult</code>。订阅商品核心信息需通过 <code>productDetails.subscriptionOfferDetails</code> 列表获取。
           </Paragraph>
           <Text strong>订阅相关的关键参数提取：</Text>
@@ -161,7 +164,7 @@ billingClient.startConnection(object : BillingClientStateListener {
             pagination={false} 
             dataSource={[
               { key: '1', field: 'subscriptionOfferDetails', desc: <span>列表，包含 Base Plan 和优惠信息。<a style={{ marginLeft: 8 }} onClick={() => setIsOfferModalOpen(true)}>查看案例</a></span> },
-              { key: '2', field: 'basePlanId', desc: '由服务器提供数据，用于在本地列表中匹配具体的订阅方案。' },
+              { key: '2', field: 'basePlanId', desc: '基础方案 id' },
               { key: '3', field: 'pricingPhases', desc: '包含具体的价格字符串（formattedPrice）和周期（billingPeriod，如 "P1M"）。' },
               { key: '4', field: 'offerToken', desc: '待定，暂不清楚优惠折扣由哪一方控制。' },
             ]} 
