@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Typography, Steps, Card, Alert, Divider, Button, Layout, Table, Space, Tag, Modal } from 'antd';
+import { Typography, Steps, Card, Alert, Divider, Button, Layout, Table, Space, Tag, Modal, Anchor, Row, Col } from 'antd';
 import { ArrowLeftOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import mermaid from 'mermaid';
@@ -163,10 +163,30 @@ billingClient.startConnection(object : BillingClientStateListener {
             size="small" 
             pagination={false} 
             dataSource={[
-              { key: '1', field: 'subscriptionOfferDetails', desc: <span>列表，包含 Base Plan 和优惠信息。<a style={{ marginLeft: 8 }} onClick={() => setIsOfferModalOpen(true)}>查看案例</a></span> },
-              { key: '2', field: 'basePlanId', desc: '基础方案 id' },
-              { key: '3', field: 'pricingPhases', desc: '包含具体的价格字符串（formattedPrice）和周期（billingPeriod，如 "P1M"）。' },
-              { key: '4', field: 'offerToken', desc: '待定，暂不清楚优惠折扣由哪一方控制。' },
+              { key: '1', field: 'ProductDetails', desc: '商品基础信息对象，主要包含 productId、name、description 等基础属性。' },
+              { key: '2', field: 'ProductDetails.SubscriptionOfferDetails', desc: <span>订阅专属信息列表，包含该商品所有的基础方案 (Base Plan) 和优惠计划 (Offer)。<a style={{ marginLeft: 8 }} onClick={() => setIsOfferModalOpen(true)}>查看案例</a></span> },
+              { key: '3', field: 'basePlanId', desc: '基础方案 id，通过 SubscriptionOfferDetails 获取。' },
+              { key: '4', field: 'PricingPhases', desc: '通过 SubscriptionOfferDetails 获取。主要用于获取产品原价和产品 offer 价格，包含具体的价格字符串（formattedPrice）和续订周期（billingPeriod，如 "P1M"）。' },
+              { key: '5', field: 'recurrenceMode', desc: (
+                <div style={{ paddingLeft: 0, marginTop: 4 }}>
+                  <Text>位于 PricingPhases 中，表示付费续订模式，分类如下：</Text>
+                  <ul style={{ margin: '8px 0', paddingLeft: 20 }}>
+                    <li><b>1 (INFINITE_RECURRING)</b>：无期限续订</li>
+                    <li><b>2 (FINITE_RECURRING)</b>：有限次数续订</li>
+                    <li><b>3 (NON_RECURRING)</b>：一次性买断</li>
+                  </ul>
+                  <Alert 
+                    type="info" 
+                    showIcon 
+                    message="特征强调" 
+                    description={
+                      <span>通常情况下，<b>产品原价</b>（基础方案）对应的阶段为无期限续订（1），而<b>产品折扣</b>（例如前几个月特价）对应的阶段为有限期订阅（2）。</span>
+                    } 
+                    style={{ marginTop: 8 }}
+                  />
+                </div>
+              ) },
+              { key: '6', field: 'offerToken', desc: '通过 SubscriptionOfferDetails 获取，是拉起该特定方案支付时所需核心凭证。' },
             ]} 
             columns={queryParamsColumns}
           />
