@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Typography, Steps, Card, Alert, Divider, Button, Layout, Table, Space, Tag, Modal, Anchor, Row, Col } from 'antd';
+import { Typography, Steps, Card, Alert, Divider, Button, Layout, Table, Space, Tag, Modal } from 'antd';
 import { ArrowLeftOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import mermaid from 'mermaid';
