@@ -240,7 +240,7 @@ billingClient.queryProductDetailsAsync(params) { result: QueryProductDetailsResu
             dataSource={[
               { key: '1', param: 'setProductDetails', desc: 'Step 2 中拿到的 ProductDetails 对象。' },
               { key: '2', param: 'setOfferToken', desc: '如果是订阅，必须指定具体优惠计划的 Token。' },
-              { key: '3', param: 'setObfuscatedAccountId', desc: '建议传递用户 ID 的哈希值，用于后端对账和防刷。' },
+              { key: '3', param: 'setObfuscatedAccountId', desc: '传入用户 ID（如 UUID），用于后端对账和防刷，无需哈希处理。' },
               { key: '4', param: 'BillingFlowParams.SubscriptionUpdateParams.Builder', desc: '用于订阅升级或降级。需通过 setOldPurchaseToken 传入原 purchaseToken，并指定具体的替换模式（ReplacementMode）。同时在 BillingFlowParams.Builder 的 setProductDetailsParamsList 中传入新商品参数。由服务器返回，便于后续升级/降级模式调整。' },
             ]} 
             columns={launchParamsColumns}
